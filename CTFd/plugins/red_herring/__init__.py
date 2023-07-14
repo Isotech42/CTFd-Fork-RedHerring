@@ -4,6 +4,7 @@ from flask import render_template, Blueprint
 from flask import request, jsonify,session
 
 from CTFd.models import (
+    Awards,
     ChallengeFiles,
     Challenges,
     Fails,
@@ -11,35 +12,29 @@ from CTFd.models import (
     Hints,
     Solves,
     Tags,
+    Teams,
     db,
 )
 
 from .hooks import load_hooks
+from .models import CheaterTeams, RedHerringChallenge
+from .utils import generate_flag
 
 from CTFd.plugins import register_plugin_assets_directory
 from CTFd.plugins.migrations import upgrade
 from CTFd.plugins.challenges import BaseChallenge, CHALLENGE_CLASSES
-from CTFd.plugins.flags import FlagException, get_flag_class
+from CTFd.plugins.flags import FlagException, get_flag_class, CTFdStaticFlag, FLAG_CLASSES
 from CTFd.utils.uploads import delete_file
-from CTFd.utils.user import get_ip
+from CTFd.utils.user import get_current_team, get_current_user
+from CTFd.utils.decorators import admins_only
 
 from CTFd.config import Config
 
-from mnemonic import Mnemonic
 
 PLUGIN_PATH = os.path.dirname(__file__)
 CONFIG = json.load(open("{}/config.json".format(PLUGIN_PATH)))
 
 red = Blueprint('red_herring', __name__, template_folder="templates")
-
-class RedHerringChallenge(Challenges):
-    __mapper_args__ = {"polymorphic_identity": "red_herring"}
-    id = db.Column(
-        db.Integer, db.ForeignKey("challenges.id", ondelete="CASCADE"), primary_key=True
-    )
-
-    def __init__(self, *args, **kwargs):
-        super(RedHerringChallenge, self).__init__(**kwargs)
 
 class RedHerringTypeChallenge(BaseChallenge):
     id = "red_herring"  # Unique identifier used to register challenges
@@ -58,11 +53,88 @@ class RedHerringTypeChallenge(BaseChallenge):
     # Route at which files are accessible. This must be registered using register_plugin_assets_directory()
     route = "/plugins/red_herring/assets/"
     challenge_model = RedHerringChallenge
+    
+    @staticmethod
+    def create(request):
+        """
+        This method is used to process the challenge creation request.
+
+        :param request:
+        :return:
+        """
+        data = request.form or request.get_json()
+
+        challenge = RedHerringChallenge(
+            name=data['name'],
+            category=data['category'],
+            description=data['description'],
+            value=data['value'],
+            state=data['state'],
+            type='red_herring',
+        )
+
+        db.session.add(challenge)
+        db.session.commit()
+
+        # Check if there is teams that are created
+        teams = Teams.query.all()
+        if len(teams) > 0:
+            # For each team, create a flag for the challenge with the team id as the flag.data
+            for team in teams:
+                generated_flag = generate_flag()
+                flag = Flags(challenge_id = challenge.id, type = "red_herring", content = generated_flag, data = team.id)
+                db.session.add(flag)
+
+            db.session.commit()
+        
+        return challenge
+
+class RedHearingFlag(CTFdStaticFlag):
+    name = "red_herring"
+
+    @staticmethod
+    def compare(chal_key_obj, provided_flag):
+        # Get the actual flag to check for the challenge submitted (the function compare() is called for each flag of the challenge)
+        saved_flag = chal_key_obj.content
+
+        # Compare each character in the flag if the team id is the one that is supposed to solve the challenge
+        curr_team_id = get_current_team().id
+
+        result = 0
+        for x, y in zip(saved_flag, provided_flag):
+            result |= ord(x) ^ ord(y)
+        
+        if result == 0:
+            # If the flag is correct, we need to check if the team is the one associated with the flag
+            team_id_needed = chal_key_obj.data
+            if int(team_id_needed) == int(curr_team_id):
+                return True
+            else:
+                curr_user_id = get_current_user().id
+                cheater = CheaterTeams(challengeid=chal_key_obj.challenge_id, cheaterid=curr_user_id, cheatteamid=curr_team_id, sharerteamid=team_id_needed, flagid=chal_key_obj.id)
+                db.session.add(cheater)
+                return False
+        else:
+            print("wrong flag")
+            return False
+
+
+@red.route('/admin/red_herring',methods=['GET'])
+@admins_only
+def show_cheaters():
+    if request.method == 'GET':
+        cheaters = CheaterTeams.query.all()
+        return render_template('red_herring.html', cheaters=cheaters)
+
 
 def load(app):
     app.db.create_all() # Create all DB entities
     upgrade(plugin_name="red_herring")
+
     CHALLENGE_CLASSES['red_herring'] = RedHerringTypeChallenge
+    FLAG_CLASSES['red_herring'] = RedHearingFlag
+
     app.register_blueprint(red)
     register_plugin_assets_directory(app, base_path="/plugins/red_herring/assets/")
+
     load_hooks()

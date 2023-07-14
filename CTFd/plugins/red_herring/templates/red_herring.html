@@ -19,19 +19,19 @@
                             <td scope="col"><b>Challenge</b></td>
                             <td scope="col"><b>Cheat Team</b></td>
                             <td scope="col"><b>Sharer Team</b></td>
-                            <td scope="col"><b>Flag</b></td>
+                            <td scope="col"><b>Flag shared</b></td>
                             <td scope="col"><b>Date</b></td>
                         </tr>
                     </thead>
                     <tbody>
-                    {% for cheat in cheats %}
+                    {% for cheater in cheaters %}
                         <tr>
                             <th scope="row" class="text-center">{{ loop.index }}</th>
-                            <td>{{ cheat.chal }}</td>
-                            <td><a href="{{ request.script_root }}/team/{{ cheat.cheat }}">{{ cheat.cheat }}</a></td>
-                            <td><a href="{{ request.script_root }}/team/{{ cheat.sharer }}">{{ cheat.sharer}}</a></td>
-                            <td>{{ cheat.flag }}</td>
-                            <td>{{ cheat.date}}</td>
+                            <td><a href="{{ request.script_root }}/admin/challenges/{{ cheater.challengeid }}">{{ cheater.challenge_name() }}</a></td>
+                            <td><a href="{{ request.script_root }}/teams/{{ cheater.cheatteamid }}">{{ cheater.cheated_team_name() }}</a></td>
+                            <td><a href="{{ request.script_root }}/teams/{{ cheater.sharerteamid }}">{{ cheater.shared_team_name() }}</a></td>
+                            <td>{{ cheater.flag_content() }}</td>
+                            <td>{{ cheater.date}}</td>
                         </tr>
                     {% endfor %}
                     </tbody>
