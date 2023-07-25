@@ -7,5 +7,15 @@
 {% endblock %}
 
 {% block type %}
+<div class="form-group">
+	<label>
+		DockerFile:<br>
+		<small class="form-text text-muted">
+			Write in the text area the DockerFile to build the challenge.
+		</small>
+	</label>
+	<textarea id="buildfile" class="form-control" name="buildfile" rows="10" placeholder="FROM ubuntu:latest"></textarea>
+</div>
+
 <input type="hidden" value="red_herring" name="type" id="chaltype">
 {% endblock %}

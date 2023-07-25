@@ -17,8 +17,9 @@ from CTFd.models import (
 )
 
 from .hooks import load_hooks
-from .models import CheaterTeams, RedHerringChallenge
-from .utils import generate_flag
+from .models import CheaterTeams, RedHerringChallenge, Containers
+from .utils import generate_flag, create_docker_container
+from . import globals
 
 from CTFd.plugins import register_plugin_assets_directory
 from CTFd.plugins.migrations import upgrade
@@ -27,7 +28,6 @@ from CTFd.plugins.flags import FlagException, get_flag_class, CTFdStaticFlag, FL
 from CTFd.utils.uploads import delete_file
 from CTFd.utils.user import get_current_team, get_current_user
 from CTFd.utils.decorators import admins_only
-
 from CTFd.config import Config
 
 
@@ -63,15 +63,15 @@ class RedHerringTypeChallenge(BaseChallenge):
         :return:
         """
         data = request.form or request.get_json()
-
         challenge = RedHerringChallenge(
             name=data['name'],
             category=data['category'],
             description=data['description'],
             value=data['value'],
             state=data['state'],
-            type='red_herring',
+            type=data['type'],
         )
+        buildfile = data['buildfile']
 
         db.session.add(challenge)
         db.session.commit()
@@ -79,9 +79,21 @@ class RedHerringTypeChallenge(BaseChallenge):
         # Check if there is teams that are created
         teams = Teams.query.all()
         if len(teams) > 0:
-            # For each team, create a flag for the challenge with the team id as the flag.data
+            # For each team, create a flag and a container for the challenge
             for team in teams:
                 generated_flag = generate_flag()
+                
+                port = globals.PORT_CONTAINERS_START
+
+                # Generate the container
+                container_name = create_docker_container(buildfile=buildfile, flag=generated_flag, port=port, challenge_name=challenge.name, team_id=team.id)
+
+                # Save the container in the database
+                container = Containers(name=container_name, port=port, dockerfile=buildfile, challengeid=challenge.id, teamid=team.id)
+                db.session.add(container)
+                globals.PORT_CONTAINERS_START += 1
+
+                # Save the flag in the database
                 flag = Flags(challenge_id = challenge.id, type = "red_herring", content = generated_flag, data = team.id)
                 db.session.add(flag)
 
@@ -128,6 +140,7 @@ def show_cheaters():
 
 
 def load(app):
+    globals.initialize()
     app.db.create_all() # Create all DB entities
     upgrade(plugin_name="red_herring")
 

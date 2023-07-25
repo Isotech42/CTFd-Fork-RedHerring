@@ -425,7 +425,6 @@ class Challenge(Resource):
         response["files"] = files
         response["tags"] = tags
         response["hints"] = hints
-
         response["view"] = render_template(
             chal_class.templates["view"].lstrip("/"),
             solves=solve_count,

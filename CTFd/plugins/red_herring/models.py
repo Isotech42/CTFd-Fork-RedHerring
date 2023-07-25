@@ -1,4 +1,6 @@
 from CTFd.models import db, Teams, Challenges, Flags
+from CTFd.utils.user import get_current_team
+from . import globals
 
 class RedHerringChallenge(Challenges):
     __mapper_args__ = {"polymorphic_identity": "red_herring"}
@@ -8,6 +10,14 @@ class RedHerringChallenge(Challenges):
 
     def __init__(self, *args, **kwargs):
         super(RedHerringChallenge, self).__init__(**kwargs)
+
+    def get_container_port(self):
+        teamid = get_current_team().id
+        container = Containers.query.filter_by(challengeid=self.id, teamid=teamid).first()
+        return container.port
+    
+    def get_container_address(self):
+        return globals.IP_ADDRESS_CONTAINERS
 
 
 class CheaterTeams(db.Model):
@@ -42,3 +52,23 @@ class CheaterTeams(db.Model):
     
     def flag_content(self):
         return Flags.query.filter_by(id=self.flagid).first().content
+
+class Containers(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80))
+    dockerfile = db.Column(db.Text)
+    address = db.Column(db.String(80))
+    port = db.Column(db.Integer)
+    challengeid = db.Column(db.Integer, db.ForeignKey('challenges.id', ondelete="CASCADE"))
+    teamid = db.Column(db.Integer, db.ForeignKey('teams.id', ondelete="CASCADE"))
+
+    def __init__(self, challengeid, teamid, name, dockerfile, port, address="default"):
+        self.name = name
+        self.dockerfile = dockerfile
+        self.challengeid = challengeid
+        self.teamid = teamid
+        self.port = port
+        self.address = globals.IP_ADDRESS_CONTAINERS
+
+    def __repr__(self):
+        return "<Container ID:(0) {1} for the challenge {2} and the team {3}>".format(self.id, self.name, self.challengeid, self.teamid)
