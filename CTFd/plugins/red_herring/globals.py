@@ -5,6 +5,6 @@ def initialize():
     global FLAG_PREFIX
     
     IP_ADDRESS_CONTAINERS = "127.0.0.1"
-    PORT_CONTAINERS_START = 8095
+    PORT_CONTAINERS_START = 8080
     FLAG_LANGUAGE = "english"
-    FLAG_PREFIX = "flag"
+    FLAG_PREFIX = "CTF2024"

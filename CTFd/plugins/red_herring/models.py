@@ -62,7 +62,7 @@ class Containers(db.Model):
     challengeid = db.Column(db.Integer, db.ForeignKey('challenges.id', ondelete="CASCADE"))
     teamid = db.Column(db.Integer, db.ForeignKey('teams.id', ondelete="CASCADE"))
 
-    def __init__(self, challengeid, teamid, name, dockerfile, port, address="default"):
+    def __init__(self, challengeid, teamid, name, dockerfile, port, address="127.0.0.1"):
         self.name = name
         self.dockerfile = dockerfile
         self.challengeid = challengeid
