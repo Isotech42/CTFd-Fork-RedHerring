@@ -34,7 +34,6 @@ from CTFd.utils.user import get_locale
 __version__ = "3.5.3"
 __channel__ = "oss"
 
-
 class CTFdRequest(Request):
     @cached_property
     def path(self):
